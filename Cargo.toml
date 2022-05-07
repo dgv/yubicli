@@ -10,3 +10,4 @@ pcsc = "2"
 clipboard = "0.4.4"
 rpassword = "0.0.4"
 data-encoding = "2.3.2"
+clap = { version = "3.1.17", features = ["derive"] }

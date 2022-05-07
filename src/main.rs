@@ -2,6 +2,8 @@ extern crate clipboard;
 extern crate data_encoding;
 extern crate pcsc;
 extern crate rpassword;
+use clap::Parser;
+
 use clipboard::ClipboardContext;
 use clipboard::ClipboardProvider;
 use data_encoding::BASE32;
@@ -10,6 +12,23 @@ use pcsc::*;
 use rpassword::read_password;
 use std::io::Write;
 use std::os::raw::c_uint;
+
+/// Simple program to greet a person
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    /// Add new TOTP
+    #[clap(short, long)]
+    add: String,
+
+    /// Remove TOTP account
+    #[clap(short, long)]
+    del: String,
+
+    /// List available codes
+    #[clap(short, long)]
+    list: String,
+}
 
 // TLV tags for credential data
 pub const TAG_NAME: c_uint = 0x71;
@@ -63,6 +82,8 @@ pub const OATH_TYPE: [u8; 2] = [0x010, 0x020];
 pub const PROP_REQUIRE_TOUCHL: usize = 0x02;
 
 fn main() {
+    let args = Args::parse();
+
     // Establish a PC/SC context.
     let ctx = match Context::establish(Scope::User) {
         Ok(ctx) => ctx,
@@ -91,6 +112,7 @@ fn main() {
         }
     };
     println!("Using reader: {:?}", reader);
+
     let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
     ctx.set_contents(reader.to_str().unwrap().to_owned())
         .unwrap();
@@ -102,5 +124,5 @@ fn main() {
 
     let data: Vec<u8> = vec![1, 2, 3, 4, 5];
     println!("{}", BASE32.encode(&data));
-    println!("{}", BASE64.encode(&data));
+    //println!("{}", BASE64.encode(&data));
 }
