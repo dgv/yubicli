@@ -1,15 +1,15 @@
-extern crate pcsc;
 extern crate clipboard;
-extern crate rpassword;
 extern crate data_encoding;
+extern crate pcsc;
+extern crate rpassword;
+use clipboard::ClipboardContext;
+use clipboard::ClipboardProvider;
 use data_encoding::BASE32;
 use data_encoding::BASE64;
+use pcsc::*;
 use rpassword::read_password;
 use std::io::Write;
-use pcsc::*;
-use clipboard::ClipboardProvider;
-use clipboard::ClipboardContext;
-use std::os::raw::{c_uint};
+use std::os::raw::c_uint;
 
 // TLV tags for credential data
 pub const TAG_NAME: c_uint = 0x71;
@@ -51,7 +51,7 @@ pub const HMAC_MINIMUM_KEY_SIZE: usize = 14;
 //    SHA1 = 0x01
 //    SHA256 = 0x02
 //    SHA512 = 0x03
-    
+
 pub const HASH_ALGORITHM: [u8; 3] = [0x01, 0x02, 0x03];
 
 //class OATH_TYPE(IntEnum):
@@ -92,14 +92,15 @@ fn main() {
     };
     println!("Using reader: {:?}", reader);
     let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
-    ctx.set_contents(reader.to_str().unwrap().to_owned()).unwrap();
-    
+    ctx.set_contents(reader.to_str().unwrap().to_owned())
+        .unwrap();
+
     print!("Type a password: ");
     std::io::stdout().flush().unwrap();
     let password = read_password().unwrap();
     println!("The password is: '{}'", password);
-   
-    let data: Vec<u8> = vec![1,2,3,4,5];
+
+    let data: Vec<u8> = vec![1, 2, 3, 4, 5];
     println!("{}", BASE32.encode(&data));
     println!("{}", BASE64.encode(&data));
 }
