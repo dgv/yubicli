@@ -2,7 +2,7 @@ extern crate clipboard;
 extern crate data_encoding;
 extern crate pcsc;
 extern crate rpassword;
-use clap::Parser;
+use clap::*;
 
 use clipboard::ClipboardContext;
 use clipboard::ClipboardProvider;
@@ -13,7 +13,6 @@ use rpassword::read_password;
 use std::io::Write;
 use std::os::raw::c_uint;
 
-/// Simple program to greet a person
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
@@ -28,6 +27,10 @@ struct Args {
     /// List available codes
     #[clap(short, long)]
     list: String,
+
+    /// Manage password
+    #[clap(short, long)]
+    password: String,
 }
 
 // TLV tags for credential data
@@ -116,7 +119,6 @@ fn main() {
     let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
     ctx.set_contents(reader.to_str().unwrap().to_owned())
         .unwrap();
-
     print!("Type a password: ");
     std::io::stdout().flush().unwrap();
     let password = read_password().unwrap();
