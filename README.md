@@ -1,6 +1,9 @@
-# yubicli
 [<img src="https://raw.githubusercontent.com/iqlusioninc/yubikey.rs/main/img/logo.png" width="150" height="110" alt="ferris">](https://github.com/iqlusioninc/yubikey.rs)
 
+# yubicli
+
+[![Build Status](https://github.com/dgv/yubicli/actions/workflows/build.yml/badge.svg)](https://github.com/dgv/yubicli/actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A minimal CLI tool for YubiKey OATH authentication, inspired by [rsc/2fa](https://github.com/rsc/2fa) but designed to work directly with YubiKeys via PC/SC using reverse-engineered specification from [trussed](https://github.com/trussed-dev/oath-authenticator).
 

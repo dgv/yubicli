@@ -124,6 +124,16 @@ enum AccessCommands {
 }
 
 fn main() {
+    #[cfg(target_os = "linux")]
+    {
+        use std::env;
+        let args: Vec<String> = env::args().collect();
+        if args.len() == 3 && args[1] == "__clipboard_daemon__" {
+            clipboard_daemon(&args[2]);
+            return;
+        }
+    }
+
     let cli = Cli::parse();
 
     let result = match cli.command {
@@ -257,6 +267,7 @@ fn cmd_code(
             }
             if let Some(code) = code {
                 println!("{}", code.value);
+                copy_to_clipboard(&code.value);
             } else if cred.touch_required {
                 eprintln!("[Requires Touch]");
             } else {
@@ -285,6 +296,7 @@ fn cmd_code(
         };
         if let Some(code) = &code {
             println!("{}  {}", name, code.value);
+            copy_to_clipboard(&code.value);
         } else if cred.touch_required {
             println!("{}  [Requires Touch]", name);
         } else {
@@ -318,6 +330,33 @@ fn cmd_code(
         }
     }
     Ok(())
+}
+
+fn copy_to_clipboard(text: &str) {
+    use arboard::Clipboard;
+
+    if let Ok(mut clipboard) = Clipboard::new() {
+        let _ = clipboard.set_text(text);
+    }
+
+    #[cfg(all(target_os = "linux"))]
+    {
+        use std::env;
+        use std::process::{Command, Stdio};
+
+        if env::var("WAYLAND_DISPLAY").is_err() && env::var("DISPLAY").is_ok() {
+            let exe = env::current_exe().ok();
+            if let Some(exe) = exe {
+                let _ = Command::new(exe)
+                    .arg("__clipboard_daemon__")
+                    .arg(text)
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .spawn();
+            }
+        }
+    }
 }
 
 fn cmd_add(
@@ -561,4 +600,14 @@ fn parse_b32_key(key: &str) -> session::Result<Vec<u8>> {
         .map_err(|e| session::Error::Parse(format!("Invalid base32 key: {}", e)))
 }
 
+#[cfg(target_os = "linux")]
+fn clipboard_daemon(text: &str) {
+    use arboard::Clipboard;
+    use std::thread;
+    use std::time::Duration;
 
+    if let Ok(mut clipboard) = Clipboard::new() {
+        let _ = clipboard.set_text(text);
+        thread::sleep(Duration::from_secs(5));
+    }
+}
