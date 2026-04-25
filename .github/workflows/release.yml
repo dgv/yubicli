@@ -1,0 +1,30 @@
+name: Build and Release
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: rust:alpine
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Install deps
+        run: |
+          apk update
+          apk add pcsc-lite-dev pcsc-lite-static pkgconfig zip
+          rustup target add x86_64-unknown-linux-musl
+                    
+      - name: Build & compress
+        run: |
+          RUSTFLAGS="-C target-feature=+crt-static" cargo build --target x86_64-unknown-linux-musl --release; zip -j yubicli-x86_64_linux.zip target/x86_64-unknown-linux-musl/release/yubicli
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: yubicli-x86_64_linux.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.YUBICLI_TOKEN }}

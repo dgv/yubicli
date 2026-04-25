@@ -5,7 +5,7 @@
 [![Build Status](https://github.com/dgv/yubicli/actions/workflows/build.yml/badge.svg)](https://github.com/dgv/yubicli/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A minimal CLI tool for YubiKey OATH authentication, inspired by [rsc/2fa](https://github.com/rsc/2fa) but designed to work directly with YubiKeys via PC/SC using reverse-engineered specification from [trussed](https://github.com/trussed-dev/oath-authenticator).
+A minimal CLI tool for YubiKey OATH authentication, inspired by [rsc/2fa](https://github.com/rsc/2fa) but designed to work directly with YubiKeys via PC/SC using reverse-engineered specification from [trussed](https://github.com/trussed-dev/oath-authenticator). 
 
 ### Motivation
 
@@ -13,8 +13,8 @@ Replace the bloated Yubico Authenticator utilities with a simple, dependency-fre
 
 ### Supported YubiKeys
 
-    YubiKey 4 series
-    YubiKey 5 series _(not tested)_
+- YubiKey 4 series
+- YubiKey 5 series _(not tested)_
 
 NOTE: Nano and USB-C variants of the above are also supported. NEO series is NOT supported.
 
@@ -52,8 +52,9 @@ yubicli
 # Show OATH app info
 yubicli info
 
-# Generate code for an account
-yubicli code google
+# Generate code for an account (saved to clipboard if available)
+yubicli code myaccount
+myaccount  338187
 
 # Generate all codes
 yubicli code
