@@ -17,10 +17,11 @@ The binary is fully static with no system dependencies. On Linux, non-root users
 
 ```
 # /etc/udev/rules.d/70-yubicli.rules
-SUBSYSTEM=="usb", ATTRS{idVendor}=="1050", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTR{idVendor}=="1050", MODE="0666"
+SUBSYSTEM=="hidraw", KERNEL=="hidraw*", ATTRS{idVendor}=="1050", MODE="0666"
 ```
 
-then replug the key (or run `sudo udevadm trigger`). Alternatively run as root.
+then reload with `sudo udevadm trigger --subsystem-match=usb --action=change` (or replug the key). Alternatively run as root.
 
 ### Static build
 
