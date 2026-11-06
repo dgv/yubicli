@@ -4,17 +4,18 @@ on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: rust:alpine
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
-      - name: Install deps
+
+      - name: Add musl target
+        run: rustup target add x86_64-unknown-linux-musl
+
+      - name: Build static binary
+        run: RUSTFLAGS="-C target-feature=+crt-static" cargo build --target x86_64-unknown-linux-musl --release
+
+      - name: Verify static binary
         run: |
-          apk update
-          apk add pcsc-lite-dev pcsc-lite-static pkgconfig
-          rustup target add x86_64-unknown-linux-musl
-                    
-      - name: Build & compress
-        run: |
-          RUSTFLAGS="-C target-feature=+crt-static" cargo build --target x86_64-unknown-linux-musl --release
+          file target/x86_64-unknown-linux-musl/release/yubicli
+          ldd target/x86_64-unknown-linux-musl/release/yubicli || true
+          target/x86_64-unknown-linux-musl/release/yubicli --version

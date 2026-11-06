@@ -1,5 +1,6 @@
 mod oath;
 mod session;
+mod usb_ccid;
 
 use clap::{Parser, Subcommand};
 use data_encoding::BASE32;
@@ -176,7 +177,7 @@ fn main() {
 fn cmd_info() -> session::Result<()> {
     let mut session = OathSession::connect()?;
 
-    match session::DeviceInfo::query(session.card()) {
+    match session::DeviceInfo::query(session.device()) {
         Ok(info) => {
             println!("Device type: {}", info.device_type);
             println!("Serial number: {}", info.serial);

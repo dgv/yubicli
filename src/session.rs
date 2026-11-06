@@ -1,5 +1,6 @@
-use pcsc::*;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+use crate::usb_ccid::UsbCcidDevice;
 
 use crate::oath::*;
 
@@ -36,17 +37,15 @@ pub struct DeviceInfo {
 }
 
 impl DeviceInfo {
-    pub fn query(card: &mut Card) -> Result<Self> {
-        let mut buf = [0; MAX_BUFFER_SIZE_EXTENDED];
-
-        if let Ok(info) = Self::query_mgmt(card, &mut buf) {
+    pub fn query(device: &mut UsbCcidDevice) -> Result<Self> {
+        if let Ok(info) = Self::query_mgmt(device) {
             return Ok(info);
         }
 
-        Self::query_otp(card, &mut buf)
+        Self::query_otp(device)
     }
 
-    fn query_mgmt(card: &mut Card, buf: &mut [u8]) -> Result<Self> {
+    fn query_mgmt(device: &mut UsbCcidDevice) -> Result<Self> {
         let mut apdu = Vec::new();
         apdu.push(0x00);
         apdu.push(0xA4);
@@ -56,7 +55,7 @@ impl DeviceInfo {
         apdu.extend_from_slice(MGMT_AID);
         apdu.push(0x00);
 
-        let rapdu = card.transmit(&apdu, buf)?;
+        let rapdu = device.transmit_apdu(&apdu)?;
         if rapdu.len() < 2 {
             return Err(Error::Parse("Response too short".into()));
         }
@@ -105,7 +104,7 @@ impl DeviceInfo {
             apdu.push(0x00);
             apdu.push(0x00);
 
-            let rapdu = card.transmit(&apdu, buf)?;
+            let rapdu = device.transmit_apdu(&apdu)?;
             if rapdu.len() < 2 {
                 break;
             }
@@ -116,7 +115,7 @@ impl DeviceInfo {
                 let mut result = rapdu[..rapdu.len() - 2].to_vec();
                 loop {
                     let get_data: [u8; 5] = [0x00, INS_SEND_REMAINING, 0x00, 0x00, 0x00];
-                    let rapdu = card.transmit(&get_data, buf)?;
+                    let rapdu = device.transmit_apdu(&get_data)?;
                     if rapdu.len() < 2 {
                         break;
                     }
@@ -204,7 +203,7 @@ impl DeviceInfo {
         })
     }
 
-    fn query_otp(card: &mut Card, buf: &mut [u8]) -> Result<Self> {
+    fn query_otp(device: &mut UsbCcidDevice) -> Result<Self> {
         let mut apdu = Vec::new();
         apdu.push(0x00);
         apdu.push(0xA4);
@@ -214,7 +213,7 @@ impl DeviceInfo {
         apdu.extend_from_slice(OTP_AID);
         apdu.push(0x00);
 
-        let rapdu = card.transmit(&apdu, buf)?;
+        let rapdu = device.transmit_apdu(&apdu)?;
         if rapdu.len() < 5 {
             return Err(Error::Parse("OTP SELECT response too short".into()));
         }
@@ -242,7 +241,7 @@ impl DeviceInfo {
             apdu.push(0x00);
             apdu.push(0x00);
 
-            let rapdu = card.transmit(&apdu, buf)?;
+            let rapdu = device.transmit_apdu(&apdu)?;
             if rapdu.len() < 2 {
                 continue;
             }
@@ -358,37 +357,29 @@ fn format_usb_interfaces(enabled: u16) -> String {
 
 #[derive(Debug)]
 pub enum Error {
-    Pcsc(pcsc::Error),
     Apdu { sw: u16, msg: String },
     Parse(String),
     NoReaders,
-    NoCard,
     MultipleDevices,
+    Usb(String),
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::Pcsc(e) => write!(f, "PC/SC error: {}", e),
             Error::Apdu { sw, msg } => write!(f, "APDU error 0x{:04X}: {}", sw, msg),
             Error::Parse(e) => write!(f, "Parse error: {}", e),
-            Error::NoReaders => write!(f, "Device is not available"),
-            Error::NoCard => write!(f, "Device is not available"),
+            Error::NoReaders => write!(f, "No YubiKey found (is it plugged in? is the CCID interface enabled?)"),
             Error::MultipleDevices => write!(f, "Multiple devices detected, aborting for safety"),
+            Error::Usb(e) => write!(f, "USB error: {}", e),
         }
-    }
-}
-
-impl From<pcsc::Error> for Error {
-    fn from(e: pcsc::Error) -> Self {
-        Error::Pcsc(e)
     }
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
 
 pub struct OathSession {
-    card: Card,
+    device: UsbCcidDevice,
     version: Version,
     salt: Vec<u8>,
     challenge: Option<Vec<u8>>,
@@ -406,31 +397,8 @@ fn concat_tlvs(chunks: &[Vec<u8>]) -> Vec<u8> {
 
 impl OathSession {
     pub fn connect() -> Result<Self> {
-        let ctx = Context::establish(Scope::User).map_err(Error::from)?;
-        let mut readers_buf = [0; 2048];
-        let readers = ctx.list_readers(&mut readers_buf).map_err(Error::from)?;
-
-        let reader_count = readers.clone().count();
-        if reader_count == 0 {
-            return Err(Error::NoReaders);
-        }
-        if reader_count > 1 {
-            return Err(Error::MultipleDevices);
-        }
-
-        let reader_name = readers.last().ok_or(Error::NoReaders)?;
-        let card = ctx
-            .connect(reader_name, ShareMode::Shared, Protocols::ANY)
-            .map_err(|e| {
-                if let pcsc::Error::NoSmartcard = e {
-                    Error::NoCard
-                } else {
-                    Error::Pcsc(e)
-                }
-            })?;
-
         let mut session = Self {
-            card,
+            device: UsbCcidDevice::open_first()?,
             version: Version {
                 major: 0,
                 minor: 0,
@@ -445,13 +413,12 @@ impl OathSession {
         Ok(session)
     }
 
-    pub fn card(&mut self) -> &mut Card {
-        &mut self.card
+    pub(crate) fn device(&mut self) -> &mut UsbCcidDevice {
+        &mut self.device
     }
 
     fn transmit(&mut self, apdu: &[u8]) -> Result<Vec<u8>> {
-        let mut rapdu_buf = [0; MAX_BUFFER_SIZE_EXTENDED];
-        let rapdu = self.card.transmit(apdu, &mut rapdu_buf)?;
+        let rapdu = self.device.transmit_apdu(apdu)?;
 
         if rapdu.len() < 2 {
             return Err(Error::Parse("Response too short".into()));
@@ -466,7 +433,7 @@ impl OathSession {
             let mut result = data.to_vec();
             loop {
                 let get_data = [0x00, INS_SEND_REMAINING, 0x00, 0x00, 0x00];
-                let rapdu = self.card.transmit(&get_data, &mut rapdu_buf)?;
+                let rapdu = self.device.transmit_apdu(&get_data)?;
                 if rapdu.len() < 2 {
                     return Err(Error::Parse("Response too short".into()));
                 }

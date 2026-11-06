@@ -1,10 +1,9 @@
 [package]
 name = "yubicli"
-version = "1.0.0"
+version = "2.0.0"
 edition = "2021"
 
 [dependencies]
-pcsc = "2"
 clap = { version = "4.5.1", features = ["derive"] }
 data-encoding = "2.3.2"
 hmac = "0.12"
@@ -14,3 +13,4 @@ pbkdf2 = "0.12"
 getrandom = "0.2"
 rpassword = "7"
 arboard = "3"
+nusb = "0.2"

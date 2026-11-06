@@ -5,11 +5,33 @@
 [![Build Status](https://github.com/dgv/yubicli/actions/workflows/build.yml/badge.svg)](https://github.com/dgv/yubicli/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A minimal CLI tool for YubiKey OATH authentication, inspired by [rsc/2fa](https://github.com/rsc/2fa) but designed to work directly with YubiKeys via PC/SC using reverse-engineered specification from [trussed](https://github.com/trussed-dev/oath-authenticator). 
+A minimal CLI tool for YubiKey OATH authentication, inspired by [rsc/2fa](https://github.com/rsc/2fa) but designed to work directly with YubiKeys over raw USB CCID using reverse-engineered specification from [trussed](https://github.com/trussed-dev/oath-authenticator). 
 
 ### Motivation
 
-Replace the bloated Yubico Authenticator utilities with a simple, dependency-free binary for managing TOTP/HOTP codes stored on YubiKeys.
+Replace the bloated Yubico Authenticator utilities with a simple, statically-linked binary for managing TOTP/HOTP codes stored on YubiKeys.
+
+### Runtime requirements
+
+The binary is fully static with no system dependencies. On Linux, non-root users need USB access to the key via a udev rule:
+
+```
+# /etc/udev/rules.d/70-yubicli.rules
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1050", TAG+="uaccess"
+```
+
+then replug the key (or run `sudo udevadm trigger`). Alternatively run as root.
+
+### Static build
+
+No system dependencies are required — not even for the static musl binary:
+
+```bash
+rustup target add x86_64-unknown-linux-musl
+RUSTFLAGS="-C target-feature=+crt-static" cargo build --target x86_64-unknown-linux-musl --release
+```
+
+See `.github/workflows` for the release pipeline (x86_64 + aarch64).
 
 ### Supported YubiKeys
 

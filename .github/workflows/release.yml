@@ -4,27 +4,66 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    runs-on: ubuntu-latest
-    container: rust:alpine
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            artifact: yubicli-x86_64-unknown-linux-musl
+          - runs-on: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            artifact: yubicli-aarch64-unknown-linux-musl
+    runs-on: ${{ matrix.runs-on }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
-      - name: Install deps
+
+      - name: Add musl target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build static binary
+        run: RUSTFLAGS="-C target-feature=+crt-static" cargo build --target ${{ matrix.target }} --release
+
+      - name: Verify static binary
         run: |
-          apk update
-          apk add pcsc-lite-dev pcsc-lite-static pkgconfig zip
-          rustup target add x86_64-unknown-linux-musl
-                    
-      - name: Build & compress
+          file target/${{ matrix.target }}/release/yubicli
+          target/${{ matrix.target }}/release/yubicli --version
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: target/${{ matrix.target }}/release/yubicli
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Package
         run: |
-          RUSTFLAGS="-C target-feature=+crt-static" cargo build --target x86_64-unknown-linux-musl --release; zip -j yubicli-x86_64_linux.zip target/x86_64-unknown-linux-musl/release/yubicli
+          cd dist
+          zip -j yubicli-x86_64_linux.zip yubicli-x86_64-unknown-linux-musl/yubicli
+          zip -j yubicli-aarch64_linux.zip yubicli-aarch64-unknown-linux-musl/yubicli
+          sha256sum *.zip > SHA256SUMS.txt
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: yubicli-x86_64_linux.zip
+          files: |
+            dist/yubicli-x86_64_linux.zip
+            dist/yubicli-aarch64_linux.zip
+            dist/SHA256SUMS.txt
         env:
           GITHUB_TOKEN: ${{ secrets.YUBICLI_TOKEN }}
